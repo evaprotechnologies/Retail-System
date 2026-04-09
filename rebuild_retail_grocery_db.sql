@@ -28,10 +28,16 @@ DROP TABLE IF EXISTS Stock CASCADE;
 DROP TABLE IF EXISTS Products CASCADE;
 DROP TABLE IF EXISTS Suppliers CASCADE;
 DROP TABLE IF EXISTS Users CASCADE;
+DROP TABLE IF EXISTS StoreSettings CASCADE;
 
 -- ============================================================
 -- 1) CORE TABLES
 -- ============================================================
+
+CREATE TABLE StoreSettings (
+    SettingKey VARCHAR(50) PRIMARY KEY,
+    SettingValue TEXT NOT NULL
+);
 
 CREATE TABLE Users (
     UserID SERIAL PRIMARY KEY,
@@ -56,6 +62,7 @@ CREATE TABLE Suppliers (
 CREATE TABLE Products (
     ProductID SERIAL PRIMARY KEY,
     ProductName VARCHAR(120) NOT NULL,
+    Barcode VARCHAR(32) UNIQUE NOT NULL,
     Category VARCHAR(50) NOT NULL,
     SellingPrice DECIMAL(10,2) NOT NULL CHECK (SellingPrice > 0),
     SupplierID INT,
@@ -104,6 +111,7 @@ CREATE INDEX idx_users_username ON Users(Username);
 CREATE INDEX idx_users_role ON Users(Role);
 CREATE INDEX idx_products_category ON Products(Category);
 CREATE INDEX idx_products_supplier ON Products(SupplierID);
+CREATE INDEX idx_products_barcode ON Products(Barcode);
 CREATE INDEX idx_stock_product ON Stock(ProductID);
 CREATE INDEX idx_sales_date ON Sales(SaleDate);
 CREATE INDEX idx_sales_details_sale ON Sales_Details(SaleID);
@@ -193,6 +201,10 @@ ORDER BY p.ProductName;
 -- 5) SEED DATA (SUPERMARKET / GROCERY)
 -- ============================================================
 
+-- Store-level security (cart line removal / clear cart — not login passwords)
+INSERT INTO StoreSettings (SettingKey, SettingValue) VALUES
+('cart_removal_pin', '882244');
+
 -- Users
 INSERT INTO Users (Username, Password, FullName, Role) VALUES
 ('manager1', 'manager123', 'Sarah Manager', 'manager'),
@@ -210,40 +222,40 @@ INSERT INTO Suppliers (SupplierName, ContactPerson, PhoneNumber, Email) VALUES
 ('Unilever Consumer Goods', 'Grace Mwanza', '0977000005', 'trade@unilever.co.zm'),
 ('Dairy Gold Suppliers', 'Brian Nkonde', '0977000006', 'dispatch@dairygold.co.zm');
 
--- Products
-INSERT INTO Products (ProductName, Category, SellingPrice, SupplierID, LastPriceUpdatedBy) VALUES
-('White Bread 700g', 'Bakery', 18.50, 4, 1),
-('Brown Bread 700g', 'Bakery', 20.00, 4, 1),
-('Long Grain Rice 2kg', 'Groceries', 68.00, 4, 1),
-('Mealie Meal Breakfast 10kg', 'Groceries', 180.00, 4, 1),
-('Sugar White 2kg', 'Groceries', 62.00, 4, 1),
-('Cooking Oil 2L', 'Groceries', 95.00, 2, 1),
-('Table Salt 1kg', 'Groceries', 14.00, 2, 1),
-('Spaghetti 500g', 'Groceries', 24.00, 2, 1),
-('Canned Baked Beans 420g', 'Groceries', 19.00, 2, 1),
-('Corn Flakes 750g', 'Groceries', 58.00, 5, 1),
-('Fresh Milk 1L', 'Dairy', 24.50, 6, 1),
-('Yoghurt Strawberry 500ml', 'Dairy', 29.00, 6, 1),
-('Cheddar Cheese 250g', 'Dairy', 55.00, 6, 1),
-('Butter 500g', 'Dairy', 48.00, 6, 1),
-('Eggs Tray (30)', 'Dairy', 85.00, 1, 1),
-('Chicken Whole 1.2kg avg', 'Meat', 92.00, 3, 1),
-('Beef Mince 1kg', 'Meat', 98.00, 3, 1),
-('Pork Chops 1kg', 'Meat', 105.00, 3, 1),
-('Apples 1kg', 'Fresh Produce', 39.00, 1, 1),
-('Bananas 1kg', 'Fresh Produce', 28.00, 1, 1),
-('Tomatoes 1kg', 'Fresh Produce', 26.00, 1, 1),
-('Onions 1kg', 'Fresh Produce', 22.00, 1, 1),
-('Potatoes 2kg', 'Fresh Produce', 36.00, 1, 1),
-('Cabbage Each', 'Fresh Produce', 18.00, 1, 1),
-('Laundry Detergent 1kg', 'Cleaning', 45.00, 2, 1),
-('Dishwashing Liquid 750ml', 'Cleaning', 28.00, 2, 1),
-('Bath Soap 175g', 'Personal Care', 13.50, 5, 1),
-('Toothpaste 100ml', 'Personal Care', 21.00, 5, 1),
-('Toilet Paper 10 Pack', 'Household', 65.00, 5, 1),
-('Bottled Water 1.5L', 'Beverages', 9.00, 2, 1),
-('Orange Juice 1L', 'Beverages', 27.00, 5, 1),
-('Soft Drink 2L', 'Beverages', 19.50, 2, 1);
+-- Products (Barcodes: 6001000000001 … unique per SKU)
+INSERT INTO Products (ProductName, Barcode, Category, SellingPrice, SupplierID, LastPriceUpdatedBy) VALUES
+('White Bread 700g', '6001000000001', 'Bakery', 18.50, 4, 1),
+('Brown Bread 700g', '6001000000002', 'Bakery', 20.00, 4, 1),
+('Long Grain Rice 2kg', '6001000000003', 'Groceries', 68.00, 4, 1),
+('Mealie Meal Breakfast 10kg', '6001000000004', 'Groceries', 180.00, 4, 1),
+('Sugar White 2kg', '6001000000005', 'Groceries', 62.00, 4, 1),
+('Cooking Oil 2L', '6001000000006', 'Groceries', 95.00, 2, 1),
+('Table Salt 1kg', '6001000000007', 'Groceries', 14.00, 2, 1),
+('Spaghetti 500g', '6001000000008', 'Groceries', 24.00, 2, 1),
+('Canned Baked Beans 420g', '6001000000009', 'Groceries', 19.00, 2, 1),
+('Corn Flakes 750g', '6001000000010', 'Groceries', 58.00, 5, 1),
+('Fresh Milk 1L', '6001000000011', 'Dairy', 24.50, 6, 1),
+('Yoghurt Strawberry 500ml', '6001000000012', 'Dairy', 29.00, 6, 1),
+('Cheddar Cheese 250g', '6001000000013', 'Dairy', 55.00, 6, 1),
+('Butter 500g', '6001000000014', 'Dairy', 48.00, 6, 1),
+('Eggs Tray (30)', '6001000000015', 'Dairy', 85.00, 1, 1),
+('Chicken Whole 1.2kg avg', '6001000000016', 'Meat', 92.00, 3, 1),
+('Beef Mince 1kg', '6001000000017', 'Meat', 98.00, 3, 1),
+('Pork Chops 1kg', '6001000000018', 'Meat', 105.00, 3, 1),
+('Apples 1kg', '6001000000019', 'Fresh Produce', 39.00, 1, 1),
+('Bananas 1kg', '6001000000020', 'Fresh Produce', 28.00, 1, 1),
+('Tomatoes 1kg', '6001000000021', 'Fresh Produce', 26.00, 1, 1),
+('Onions 1kg', '6001000000022', 'Fresh Produce', 22.00, 1, 1),
+('Potatoes 2kg', '6001000000023', 'Fresh Produce', 36.00, 1, 1),
+('Cabbage Each', '6001000000024', 'Fresh Produce', 18.00, 1, 1),
+('Laundry Detergent 1kg', '6001000000025', 'Cleaning', 45.00, 2, 1),
+('Dishwashing Liquid 750ml', '6001000000026', 'Cleaning', 28.00, 2, 1),
+('Bath Soap 175g', '6001000000027', 'Personal Care', 13.50, 5, 1),
+('Toothpaste 100ml', '6001000000028', 'Personal Care', 21.00, 5, 1),
+('Toilet Paper 10 Pack', '6001000000029', 'Household', 65.00, 5, 1),
+('Bottled Water 1.5L', '6001000000030', 'Beverages', 9.00, 2, 1),
+('Orange Juice 1L', '6001000000031', 'Beverages', 27.00, 5, 1),
+('Soft Drink 2L', '6001000000032', 'Beverages', 19.50, 2, 1);
 
 -- Stock (aligned with ProductID insertion order above)
 INSERT INTO Stock (ProductID, QuantityAvailable, ReorderLevel, LastRestockDate) VALUES

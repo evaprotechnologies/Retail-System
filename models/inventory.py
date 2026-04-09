@@ -9,7 +9,7 @@ class POSSystem:
     @staticmethod
     def get_products_for_sale():
         query = """
-            SELECT p.ProductID, p.ProductName, p.SellingPrice, COALESCE(s.QuantityAvailable, 0) AS Stock
+            SELECT p.ProductID, p.ProductName, p.Barcode, p.SellingPrice, COALESCE(s.QuantityAvailable, 0) AS Stock
             FROM Products p
             LEFT JOIN Stock s ON p.ProductID = s.ProductID
             WHERE COALESCE(s.QuantityAvailable, 0) > 0
@@ -28,6 +28,19 @@ class POSSystem:
         return db.fetch_one(query, (product_id,))
 
     @staticmethod
+    def get_product_by_barcode(barcode: str):
+        if not barcode or not str(barcode).strip():
+            return None
+        code = str(barcode).strip()
+        query = """
+            SELECT p.ProductID, p.ProductName, p.Barcode, p.SellingPrice, COALESCE(s.QuantityAvailable, 0) AS QuantityAvailable
+            FROM Products p
+            LEFT JOIN Stock s ON p.ProductID = s.ProductID
+            WHERE p.Barcode = %s
+        """
+        return db.fetch_one(query, (code,))
+
+    @staticmethod
     def get_low_stock():
         query = """
             SELECT p.ProductName, s.QuantityAvailable, s.ReorderLevel
@@ -39,7 +52,7 @@ class POSSystem:
     @staticmethod
     def get_full_catalog():
         query = """
-            SELECT p.ProductID, p.ProductName, p.SellingPrice, s.QuantityAvailable
+            SELECT p.ProductID, p.ProductName, p.Barcode, p.SellingPrice, s.QuantityAvailable
             FROM Products p LEFT JOIN Stock s ON p.ProductID = s.ProductID
         """
         return db.fetch_all(query)
@@ -51,7 +64,7 @@ class POSSystem:
 
     @staticmethod
     def get_products():
-        query = "SELECT ProductID, ProductName, SellingPrice FROM Products"
+        query = "SELECT ProductID, ProductName, Barcode, SellingPrice FROM Products"
         return db.fetch_all(query)
 
     @staticmethod
@@ -60,10 +73,18 @@ class POSSystem:
         return db.fetch_all(query)
 
     @staticmethod
-    def add_product(name, price, supplier_id, stock):
+    def add_product(name, category, price, supplier_id, stock, barcode: str):
         """Add a new product and its stock."""
-        product_query = "INSERT INTO Products (ProductName, SellingPrice, SupplierID) VALUES (%s, %s, %s) RETURNING ProductID"
-        product_id = db.execute_query(product_query, (name, price, supplier_id), fetch_id=True)
+        product_query = """
+            INSERT INTO Products (ProductName, Category, SellingPrice, SupplierID, Barcode)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING ProductID
+        """
+        product_id = db.execute_query(
+            product_query,
+            (name, category, price, supplier_id, barcode.strip()),
+            fetch_id=True,
+        )
         stock_query = "INSERT INTO Stock (ProductID, QuantityAvailable) VALUES (%s, %s)"
         db.execute_query(stock_query, (product_id, stock))
         return product_id
@@ -105,4 +126,44 @@ class POSSystem:
             )
 
         return sale_id
+
+    @staticmethod
+    def get_sales_for_user(user_id: int):
+        return db.fetch_all(
+            """
+            SELECT SaleID, SaleDate, TotalAmount, PaymentMethod
+            FROM Sales
+            WHERE ProcessedBy = %s
+            ORDER BY SaleDate DESC
+            """,
+            (user_id,),
+        )
+
+    @staticmethod
+    def get_sale_line_items(sale_id: int):
+        return db.fetch_all(
+            """
+            SELECT sd.SaleDetailID, sd.ProductID, p.ProductName, p.Barcode,
+                   sd.QuantitySold, sd.UnitPrice, sd.LineTotal
+            FROM Sales_Details sd
+            JOIN Products p ON p.ProductID = sd.ProductID
+            WHERE sd.SaleID = %s
+            ORDER BY sd.SaleDetailID
+            """,
+            (sale_id,),
+        )
+
+    @staticmethod
+    def list_recent_sales(limit: int = 500):
+        return db.fetch_all(
+            """
+            SELECT s.SaleID, s.SaleDate, s.TotalAmount, s.PaymentMethod, s.ProcessedBy,
+                   COALESCE(u.FullName, '') AS CashierName
+            FROM Sales s
+            LEFT JOIN Users u ON u.UserID = s.ProcessedBy
+            ORDER BY s.SaleDate DESC
+            LIMIT %s
+            """,
+            (limit,),
+        )
 

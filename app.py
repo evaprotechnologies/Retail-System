@@ -68,6 +68,10 @@ if not st.session_state.logged_in or st.session_state.current_user is None:
         st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 else:
+    from models.navigation import render_sidebar
+
+    render_sidebar()
+
     # Get current user info
     current_user = st.session_state.current_user
     user_role = current_user.role.title() if current_user else "Unknown"
@@ -169,13 +173,4 @@ else:
             """, unsafe_allow_html=True)
 
     st.markdown("---")
-    st.markdown("**Use the sidebar menu to navigate to available features.**")
-
-    # Logout button
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        if st.button("Logout", use_container_width=True, type="secondary"):
-            # Clear session state
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
-            st.rerun()
+    st.markdown("**Use the sidebar to open your role-based menu.**")
