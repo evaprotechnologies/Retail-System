@@ -33,3 +33,15 @@ class StoreSettings:
             """,
             (CART_REMOVAL_PIN_KEY, new_pin.strip()),
         )
+
+    @staticmethod
+    def upsert_value(key: str, value: str):
+        """Insert or update any store setting (e.g. email templates, display name)."""
+        db.execute_query(
+            """
+            INSERT INTO StoreSettings (SettingKey, SettingValue)
+            VALUES (%s, %s)
+            ON CONFLICT (SettingKey) DO UPDATE SET SettingValue = EXCLUDED.SettingValue
+            """,
+            (key, value),
+        )

@@ -21,6 +21,7 @@ def render_sidebar():
             st.page_link("pages/Cashier_Handover.py", label="My Sales & Handover", icon="📋")
         else:
             st.page_link("pages/Dashboard.py", label="Dashboard", icon="📊")
+            st.page_link("pages/Manage_Suppliers.py", label="Manage Suppliers", icon="🚚")
             st.page_link("pages/Manage_Products.py", label="Manage Products", icon="📦")
             st.page_link("pages/Point_of_Sale.py", label="Point of Sale", icon="🧾")
             st.page_link("pages/Sales_Analytics.py", label="Sales Analytics", icon="📈")

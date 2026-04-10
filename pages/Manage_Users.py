@@ -7,13 +7,13 @@ from models.store_settings import CART_REMOVAL_PIN_KEY, StoreSettings
 from models.users import User
 
 st.set_page_config(page_title="Manage Users", layout="wide", initial_sidebar_state="expanded")
+User.check_login(["manager"], redirect_page="pages/Manage_Users.py")
 render_sidebar()
-User.check_login(["manager"])
 
 st.title("Manage Users & Cashiers")
-st.caption("Add staff, review activity, and configure the store cart-removal PIN (not login passwords).")
+st.caption("Add staff, reset passwords, review sales, and configure the store cart-removal PIN.")
 
-tab_staff, tab_pin = st.tabs(["Staff accounts", "Store removal PIN"])
+tab_staff, tab_pass, tab_pin = st.tabs(["Staff accounts", "Password reset", "Store removal PIN"])
 
 with tab_staff:
     st.subheader("Add cashier or manager")
@@ -74,6 +74,31 @@ with tab_staff:
                 if col_b.button("Activate", key=f"act_{cid}"):
                     StaffAdmin.set_user_active(cid, True)
                     st.rerun()
+
+with tab_pass:
+    st.subheader("Reset staff password")
+    st.caption("Managers can set a new login password for any cashier or manager account.")
+    users = StaffAdmin.list_users()
+    if not users:
+        st.info("No users.")
+    else:
+        urows = {u["userid"]: u for u in users}
+        uid = st.selectbox(
+            "User",
+            list(urows.keys()),
+            format_func=lambda i: f"{urows[i]['username']} — {urows[i]['fullname']} ({urows[i]['role']})",
+        )
+        np = st.text_input("New password", type="password", key="reset_pw1")
+        np2 = st.text_input("Confirm new password", type="password", key="reset_pw2")
+        if st.button("Update password", type="primary"):
+            if not np or np != np2:
+                st.error("Passwords must match and cannot be empty.")
+            else:
+                try:
+                    StaffAdmin.update_user_password(int(uid), np)
+                    st.success("Password updated.")
+                except Exception as exc:
+                    st.error(str(exc))
 
 with tab_pin:
     st.subheader("Cart removal PIN")

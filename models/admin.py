@@ -45,6 +45,14 @@ class StaffAdmin:
         )
 
     @staticmethod
+    def update_user_password(user_id: int, new_password: str):
+        """Set a new login password for a user (manager tool)."""
+        db.execute_query(
+            "UPDATE Users SET Password = %s WHERE UserID = %s",
+            (new_password, user_id),
+        )
+
+    @staticmethod
     def get_cashier_sales(user_id: int):
         return db.fetch_all(
             """

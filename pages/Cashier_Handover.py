@@ -7,8 +7,8 @@ from models.navigation import render_sidebar
 from models.users import User
 
 st.set_page_config(page_title="My Sales & Handover", layout="wide", initial_sidebar_state="expanded")
+User.check_login(["cashier"], redirect_page="pages/Cashier_Handover.py")
 render_sidebar()
-User.check_login(["cashier"])
 
 user = st.session_state.current_user
 st.title("My Sales & Handover")

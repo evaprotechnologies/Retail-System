@@ -73,6 +73,57 @@ class POSSystem:
         return db.fetch_all(query)
 
     @staticmethod
+    def get_suppliers_detailed():
+        query = """
+            SELECT SupplierID, SupplierName, ContactPerson, PhoneNumber, Email, CreatedAt
+            FROM Suppliers
+            ORDER BY SupplierName
+        """
+        return db.fetch_all(query)
+
+    @staticmethod
+    def add_supplier(name, contact_person, phone, email):
+        query = """
+            INSERT INTO Suppliers (SupplierName, ContactPerson, PhoneNumber, Email)
+            VALUES (%s, %s, %s, %s)
+            RETURNING SupplierID
+        """
+        return db.execute_query(query, (name.strip(), contact_person.strip() if contact_person else None,
+                                       phone.strip() if phone else None, email.strip() if email else None), fetch_id=True)
+
+    @staticmethod
+    def update_supplier(supplier_id, name, contact_person, phone, email):
+        query = """
+            UPDATE Suppliers
+            SET SupplierName = %s, ContactPerson = %s, PhoneNumber = %s, Email = %s
+            WHERE SupplierID = %s
+        """
+        db.execute_query(query, (name.strip(), contact_person.strip() if contact_person else None,
+                                phone.strip() if phone else None, email.strip() if email else None, supplier_id))
+
+    @staticmethod
+    def delete_supplier(supplier_id):
+        # Check if supplier has products
+        check_query = "SELECT COUNT(*) as product_count FROM Products WHERE SupplierID = %s"
+        result = db.fetch_one(check_query, (supplier_id,))
+        if result and result['product_count'] > 0:
+            raise ValueError("Cannot delete supplier with existing products. Reassign products first.")
+
+        query = "DELETE FROM Suppliers WHERE SupplierID = %s"
+        db.execute_query(query, (supplier_id,))
+
+    @staticmethod
+    def get_supplier_products(supplier_id):
+        query = """
+            SELECT p.ProductID, p.ProductName, p.Category, p.SellingPrice, COALESCE(s.QuantityAvailable, 0) as Stock
+            FROM Products p
+            LEFT JOIN Stock s ON p.ProductID = s.ProductID
+            WHERE p.SupplierID = %s
+            ORDER BY p.ProductName
+        """
+        return db.fetch_all(query, (supplier_id,))
+
+    @staticmethod
     def add_product(name, category, price, supplier_id, stock, barcode: str):
         """Add a new product and its stock."""
         product_query = """

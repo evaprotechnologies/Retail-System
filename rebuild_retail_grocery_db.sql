@@ -22,6 +22,9 @@ DROP VIEW IF EXISTS View_DailySales_Summary;
 DROP VIEW IF EXISTS View_LowStock_Alerts;
 DROP VIEW IF EXISTS View_Product_Catalog;
 
+DROP TABLE IF EXISTS SupplierDeliveryLines CASCADE;
+DROP TABLE IF EXISTS SupplierInvoices CASCADE;
+DROP TABLE IF EXISTS SupplierDeliveries CASCADE;
 DROP TABLE IF EXISTS Sales_Details CASCADE;
 DROP TABLE IF EXISTS Sales CASCADE;
 DROP TABLE IF EXISTS Stock CASCADE;
@@ -103,6 +106,39 @@ CREATE TABLE Sales_Details (
     FOREIGN KEY (ProductID) REFERENCES Products(ProductID) ON DELETE RESTRICT
 );
 
+CREATE TABLE SupplierDeliveries (
+    DeliveryID SERIAL PRIMARY KEY,
+    SupplierID INT NOT NULL REFERENCES Suppliers(SupplierID) ON DELETE RESTRICT,
+    DeliveryDate DATE NOT NULL DEFAULT CURRENT_DATE,
+    ReferenceCode VARCHAR(80),
+    Notes TEXT,
+    CreatedBy INT REFERENCES Users(UserID) ON DELETE SET NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE SupplierDeliveryLines (
+    LineID SERIAL PRIMARY KEY,
+    DeliveryID INT NOT NULL REFERENCES SupplierDeliveries(DeliveryID) ON DELETE CASCADE,
+    ProductID INT NOT NULL REFERENCES Products(ProductID) ON DELETE RESTRICT,
+    QuantityReceived INT NOT NULL CHECK (QuantityReceived > 0),
+    UnitCost DECIMAL(12,2)
+);
+
+CREATE TABLE SupplierInvoices (
+    InvoiceID SERIAL PRIMARY KEY,
+    SupplierID INT NOT NULL REFERENCES Suppliers(SupplierID) ON DELETE RESTRICT,
+    InvoiceNumber VARCHAR(80) NOT NULL,
+    InvoiceDate DATE NOT NULL DEFAULT CURRENT_DATE,
+    DueDate DATE,
+    Amount DECIMAL(12,2) NOT NULL CHECK (Amount >= 0),
+    Status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (Status IN ('pending', 'paid', 'cancelled')),
+    PaidDate DATE,
+    Notes TEXT,
+    DeliveryID INT REFERENCES SupplierDeliveries(DeliveryID) ON DELETE SET NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (SupplierID, InvoiceNumber)
+);
+
 -- ============================================================
 -- 2) PERFORMANCE INDEXES
 -- ============================================================
@@ -115,6 +151,10 @@ CREATE INDEX idx_products_barcode ON Products(Barcode);
 CREATE INDEX idx_stock_product ON Stock(ProductID);
 CREATE INDEX idx_sales_date ON Sales(SaleDate);
 CREATE INDEX idx_sales_details_sale ON Sales_Details(SaleID);
+CREATE INDEX idx_supplier_deliveries_supplier ON SupplierDeliveries(SupplierID);
+CREATE INDEX idx_supplier_deliveries_date ON SupplierDeliveries(DeliveryDate);
+CREATE INDEX idx_supplier_invoices_supplier ON SupplierInvoices(SupplierID);
+CREATE INDEX idx_supplier_invoices_status ON SupplierInvoices(Status);
 
 -- ============================================================
 -- 3) TRIGGERS / FUNCTIONS
@@ -203,7 +243,13 @@ ORDER BY p.ProductName;
 
 -- Store-level security (cart line removal / clear cart — not login passwords)
 INSERT INTO StoreSettings (SettingKey, SettingValue) VALUES
-('cart_removal_pin', '882244');
+('cart_removal_pin', '882244'),
+('store_display_name', 'Retail Supermarket'),
+('restock_email_subject', 'Restock request — {store_name} (low stock)'),
+(
+    'restock_email_body',
+    E'Dear {supplier_name},\n\nPlease arrange supply for the following items at or below reorder level at {store_name}:\n\n{items_table}\n\nPlease confirm availability, pricing, and delivery schedule.\n\nKind regards,\nStore Management\n{store_name}'
+);
 
 -- Users
 INSERT INTO Users (Username, Password, FullName, Role) VALUES
@@ -317,6 +363,30 @@ INSERT INTO Sales_Details (SaleID, ProductID, QuantitySold, UnitPrice, LineTotal
 (4, 3, 1, 68.00, 68.00),
 (4, 8, 1, 24.00, 24.00),
 (4, 30, 2, 9.00, 18.00);
+
+-- Sample goods-in (delivery notes) + supplier AP invoices
+INSERT INTO SupplierDeliveries (SupplierID, DeliveryDate, ReferenceCode, Notes, CreatedBy) VALUES
+(2, CURRENT_DATE - INTERVAL '5 days', 'GRN-2026-0403', 'Groceries & cleaning — Trade Kings', 1),
+(3, CURRENT_DATE - INTERVAL '3 days', 'GRN-2026-0405', 'Meat wholesale — Zambeef', 1);
+
+INSERT INTO SupplierDeliveryLines (DeliveryID, ProductID, QuantityReceived, UnitCost) VALUES
+(1, 6, 24, 88.00),
+(1, 7, 36, 11.50),
+(1, 25, 20, 38.00),
+(2, 16, 18, 84.00),
+(2, 17, 12, 92.00);
+
+UPDATE Stock SET QuantityAvailable = QuantityAvailable + 24, LastRestockDate = CURRENT_DATE - INTERVAL '5 days' WHERE ProductID = 6;
+UPDATE Stock SET QuantityAvailable = QuantityAvailable + 36, LastRestockDate = CURRENT_DATE - INTERVAL '5 days' WHERE ProductID = 7;
+UPDATE Stock SET QuantityAvailable = QuantityAvailable + 20, LastRestockDate = CURRENT_DATE - INTERVAL '5 days' WHERE ProductID = 25;
+UPDATE Stock SET QuantityAvailable = QuantityAvailable + 18, LastRestockDate = CURRENT_DATE - INTERVAL '3 days' WHERE ProductID = 16;
+UPDATE Stock SET QuantityAvailable = QuantityAvailable + 12, LastRestockDate = CURRENT_DATE - INTERVAL '3 days' WHERE ProductID = 17;
+
+INSERT INTO SupplierInvoices (SupplierID, InvoiceNumber, InvoiceDate, DueDate, Amount, Status, PaidDate, Notes, DeliveryID) VALUES
+(2, 'TK-DIST-INV-240403', CURRENT_DATE - INTERVAL '5 days', CURRENT_DATE + INTERVAL '25 days', 3286.00, 'pending', NULL, 'Matches GRN-2026-0403', 1),
+(3, 'ZB-WH-INV-240405', CURRENT_DATE - INTERVAL '3 days', CURRENT_DATE + INTERVAL '30 days', 2616.00, 'paid', CURRENT_DATE - INTERVAL '1 day', 'Paid — bank', 2),
+(5, 'UNL-ZM-INV-240390', CURRENT_DATE - INTERVAL '12 days', CURRENT_DATE + INTERVAL '18 days', 12450.75, 'pending', NULL, 'Monthly sundries — no GRN on file', NULL),
+(3, 'ZB-WH-INV-240388', CURRENT_DATE - INTERVAL '20 days', CURRENT_DATE - INTERVAL '5 days', 980.00, 'cancelled', NULL, 'Cancelled — duplicate entry', NULL);
 
 COMMIT;
 

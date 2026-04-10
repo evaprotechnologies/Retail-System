@@ -39,12 +39,21 @@ class User:
         return None
 
     @staticmethod
-    def check_login(required_roles=None):
-        """Protect pages by enforcing login and optional role checks."""
+    def check_login(required_roles=None, redirect_page: str | None = None):
+        """Protect pages: optional role list; redirect unauthenticated users to login and resume after sign-in.
+
+        Set ``redirect_page`` to this file's Streamlit path (e.g. ``\"pages/Dashboard.py\"``) so that after a
+        successful login on ``app.py``, ``st.switch_page`` returns the user here.
+        """
         user = st.session_state.get("current_user")
         if user is None:
-            st.warning("Access Denied. Please log in from the Home page first.")
-            st.stop()
+            if redirect_page:
+                st.session_state.intended_page = redirect_page
+                st.switch_page("app.py")
+            else:
+                st.warning("Access Denied. Please log in from the Home page first.")
+                st.stop()
+            return
 
         if required_roles:
             allowed = {role.lower() for role in required_roles}

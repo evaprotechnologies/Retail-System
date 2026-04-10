@@ -6,8 +6,8 @@ from models.navigation import render_sidebar
 from models.users import User
 
 st.set_page_config(page_title="Manage Products", layout="wide", initial_sidebar_state="expanded")
+User.check_login(["manager"], redirect_page="pages/Manage_Products.py")
 render_sidebar()
-User.check_login(["manager"])
 
 st.title("📦 Product Management")
 

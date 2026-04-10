@@ -7,8 +7,8 @@ from models.navigation import render_sidebar
 from models.users import User
 
 st.set_page_config(page_title="Invoices & audit", layout="wide", initial_sidebar_state="expanded")
+User.check_login(["manager"], redirect_page="pages/Invoices_Audit.py")
 render_sidebar()
-User.check_login(["manager"])
 
 st.title("Invoices & audit")
 st.caption("Every sale has a customer invoice (PDF). Open or download for audits or reprints.")

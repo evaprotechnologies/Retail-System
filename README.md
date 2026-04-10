@@ -1,6 +1,6 @@
 # Retail Inventory & Sales Management System
 
-A Streamlit + PostgreSQL retail platform for grocery-style operations, with **role-based access** for **Manager** and **Cashier** users, an **object-oriented** data layer, **barcode-aware POS**, **PDF customer invoices**, and **audit-friendly** reporting.
+A Streamlit + PostgreSQL retail platform for grocery-style operations, with **role-based access** (**Manager** / **Cashier**), an **object-oriented** `models/` layer, **supplier CRUD**, **login redirect & resume**, **barcode POS**, **PDF invoices**, and **staff / audit** tools.
 
 ---
 
@@ -23,6 +23,7 @@ Retail_System_Project/
 ├── database_schema.sql             # Current DB schema + compact demo seed
 ├── rebuild_retail_grocery_db.sql   # Full wipe/rebuild + rich supermarket seed
 ├── migration_add_barcode_store_settings.sql  # Upgrade old DBs (Barcode + StoreSettings)
+├── seed_sample_supplier_logistics.sql        # Optional demo rows for deliveries + supplier invoices
 ├── requirements.txt
 ├── README.md
 │
@@ -33,20 +34,19 @@ Retail_System_Project/
 │   ├── inventory.py                # POSSystem (products, sales, catalog, CRUD)
 │   ├── invoice.py                  # InvoiceService — PDF + receipt text from Sales
 │   ├── admin.py                    # StaffAdmin — user lists, cashier sales drill-down
-│   ├── store_settings.py           # StoreSettings — cart removal PIN
+│   ├── supplier_logistics.py       # Deliveries (goods-in), supplier AP invoices, restock email text
+│   ├── store_settings.py           # StoreSettings — cart PIN, email templates, store name
 │   └── navigation.py               # Role-based sidebar (st.page_link)
 │
 ├── pages/
 │   ├── Dashboard.py                # Manager — low stock + catalog
+│   ├── Manage_Suppliers.py         # Manager — supplier CRUD + linked products
 │   ├── Manage_Products.py          # Manager — products + barcodes
 │   ├── Point_of_Sale.py            # POS — browse / barcode / scanner, cart PIN
 │   ├── Sales_Analytics.py          # Manager — daily sales view
-│   ├── Manage_Users.py             # Manager — staff, cashier drill-down, PIN tab
+│   ├── Manage_Users.py             # Manager — staff, password reset, sales drill-down, store PIN
 │   ├── Cashier_Handover.py         # Cashier — own sales + invoice PDF
 │   └── Invoices_Audit.py           # Manager — all sales + invoice PDF / audit
-│
-└── utils/                          # Legacy (optional); app uses models/ instead
-    └── db.py
 ```
 
 ---
@@ -55,9 +55,13 @@ Retail_System_Project/
 
 ### Authentication & navigation
 
-- Login via `User.authenticate()`; session stores `current_user` (`Manager` or `Cashier`) plus legacy keys for compatibility.
-- **`User.check_login([roles])`** on protected pages.
-- **Custom sidebar** (`models/navigation.py`): default Streamlit page list is hidden (`.streamlit/config.toml`). Each role sees only its links + **Logout**.
+- Login via `User.authenticate()`; session stores `current_user` (`Manager` or `Cashier`) plus legacy keys (`userid`, `user_role`, …).
+- **`User.check_login(required_roles, redirect_page="pages/....py")`** on protected pages:
+  - If the user is **not logged in**, the app stores **`st.session_state.intended_page`** and calls **`st.switch_page("app.py")`** so they see the login form on the home app.
+  - After a **successful login**, `app.py` reads `intended_page` and calls **`st.switch_page`** to **resume the same page** (e.g. return to POS after being sent to login).
+  - Wrong role for a page still shows an error and **does not** redirect (by design).
+- **Note:** Streamlit **session state** is tied to the browser session. A **new** or **cleared** session cannot recover an in-memory cart from the server; `intended_page` restores **which screen** opens after login, not server-side cart persistence.
+- **Custom sidebar** (`models/navigation.py`): `.streamlit/config.toml` hides the default multipage list; each role sees only allowed links + **Logout**.
 
 ### Point of Sale
 
@@ -79,16 +83,20 @@ Retail_System_Project/
 ### Manager tools
 
 - **Dashboard** — low stock + full catalog (with barcodes).
-- **Manage Products** — add/update/delete; **unique barcode** per SKU.
+- **Manage Suppliers** (multi-tab): **directory** (CRUD, linked products); **Delivery notes (goods-in)** — record deliveries, line items, optional unit costs; **updates stock** on save; history + line view; **Supplier invoices (AP)** — register invoices (*pending* / *paid* / *cancelled*), optional link to a delivery note, status updates; **Restock email** — editable templates (`{store_name}`, `{supplier_name}`, `{items_table}`) in `StoreSettings`, generate draft from **low stock** per supplier, `mailto:` + `.txt` download (no SMTP; manager edits and sends from their email client).
+- **Manage Products** — add/update/delete; **unique barcode** per SKU; supplier assignment uses live supplier list.
 - **Sales Analytics** — KPIs from `View_DailySales_Summary`.
-- **Manage Users** — create cashiers/managers, activate/deactivate, per-cashier sales + **Sales_Details**; tab to **change store cart-removal PIN**.
+- **Manage Users** — create cashiers/managers; **Password reset** tab to set a new login password for any user; **Activate / Deactivate** per cashier; per-cashier **sales** + **Sales_Details**; **Store removal PIN** tab (cart line removal — not the same as login passwords).
+- **Invoices & audit** — browse sales and download PDF receipts.
 
 ### Database (current schema)
 
 | Table / object | Purpose |
 |----------------|---------|
 | **Users** | Staff accounts, roles `cashier` \| `manager`, `IsActive`, `LastLogin` |
-| **StoreSettings** | Key/value (e.g. `cart_removal_pin`) |
+| **StoreSettings** | Key/value: `cart_removal_pin`, `store_display_name`, `restock_email_*` templates |
+| **SupplierDeliveries** / **SupplierDeliveryLines** | Goods-in / delivery notes; lines increase **Stock** |
+| **SupplierInvoices** | Supplier billing: amount, status (`pending`/`paid`/`cancelled`), optional **DeliveryID** link |
 | **Suppliers** | Supplier master data |
 | **Products** | SKU, **Barcode** (unique), category, price, optional `LastPriceUpdatedBy` |
 | **Stock** | Quantity per product, reorder level |
@@ -152,6 +160,20 @@ CREATE DATABASE retailsystemdb;
   & "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -d retailsystemdb -f migration_add_barcode_store_settings.sql
   ```
 
+- **Add supplier logistics (deliveries + supplier invoices + restock template keys):**
+
+  ```powershell
+  & "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -d retailsystemdb -f migration_supplier_logistics.sql
+  ```
+
+- **Optional sample rows** for delivery notes and supplier AP invoices (skips if `GRN-DEMO-001` / `GRN-DEMO-002` already exist):
+
+  ```powershell
+  & "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -d retailsystemdb -f seed_sample_supplier_logistics.sql
+  ```
+
+  Fresh loads from **`database_schema.sql`** or **`rebuild_retail_grocery_db.sql`** already include built-in samples; use **`seed_sample_supplier_logistics.sql`** mainly on older databases that have logistics tables but no demo data.
+
 Use your real `psql` path and credentials if they differ.
 
 ### 5) Configure DB connection for the app
@@ -200,6 +222,7 @@ streamlit run app.py
 | Issue | What to check |
 |--------|----------------|
 | `column ... does not exist` (e.g. `Barcode`) | Run `migration_add_barcode_store_settings.sql` or `rebuild_retail_grocery_db.sql`. |
+| `SupplierDeliveries` / supplier tabs missing | Run **`migration_supplier_logistics.sql`** (or full `rebuild_retail_grocery_db.sql`). |
 | `StreamlitSecretNotFoundError` | Fixed in `database.py` with env fallbacks; or add `.streamlit/secrets.toml`. |
 | `psql` not found | Use full path: `C:\Program Files\PostgreSQL\<version>\bin\psql.exe`. |
 | Sidebar shows no pages | Ensure `.streamlit/config.toml` exists and Streamlit ≥ 1.33. |
@@ -211,4 +234,19 @@ streamlit run app.py
 
 - Password hashing (e.g. bcrypt) and migration of stored credentials  
 - Persist generated PDFs or object storage for long-term archive (currently on-demand from DB)  
+- Deeper analytics (margins, supplier spend, slow movers) and scheduled exports  
+- Mobile-friendly layouts for POS on tablets  
+- Automated DB backups and monitoring  
 - Automated tests and CI  
+
+---
+
+## Feature verification (what this repo implements)
+
+| Area | Status |
+|------|--------|
+| **Supplier management (manager)** | **Yes** — `pages/Manage_Suppliers.py` + `POSSystem` supplier CRUD and linked products. |
+| **Login redirect & resume** | **Yes** — `User.check_login(..., redirect_page=...)` + `intended_page` in `app.py` after successful login. |
+| **User management** | **Yes** — create users; **activate/deactivate**; **Password reset** tab (`StaffAdmin.update_user_password`); store cart-removal PIN tab. |
+| **Supplier deliveries & AP invoices** | **Yes** — `SupplierDeliveries` / `SupplierDeliveryLines` / `SupplierInvoices`; UI under **Manage Suppliers**; run **`migration_supplier_logistics.sql`** on existing DBs. |
+| **Restock email drafts** | **Yes** — templates in **StoreSettings**; `mailto:` + file download from **Manage Suppliers → Restock email**. |

@@ -9,6 +9,8 @@ if "current_user" not in st.session_state:
     st.session_state.current_user = None
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = st.session_state.current_user is not None
+if "intended_page" not in st.session_state:
+    st.session_state.intended_page = None
 
 if not st.session_state.logged_in or st.session_state.current_user is None:
     # Professional login design
@@ -54,8 +56,15 @@ if not st.session_state.logged_in or st.session_state.current_user is None:
                     user = User.authenticate(username, password)
                     if user:
                         user.persist_to_session()
-                        st.success(f"Welcome back, {user.full_name}!")
-                        st.rerun()
+                        intended_page = st.session_state.get("intended_page")
+                        if intended_page:
+                            # Clear the intended page and redirect
+                            st.session_state.intended_page = None
+                            st.success(f"Welcome back, {user.full_name}! Returning to your previous page...")
+                            st.switch_page(intended_page)
+                        else:
+                            st.success(f"Welcome back, {user.full_name}!")
+                            st.rerun()
                     else:
                         st.error("Invalid username or password")
                 else:

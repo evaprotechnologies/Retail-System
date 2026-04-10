@@ -85,6 +85,39 @@ CREATE TABLE Sales_Details (
     FOREIGN KEY (ProductID) REFERENCES Products(ProductID) ON DELETE RESTRICT
 );
 
+CREATE TABLE SupplierDeliveries (
+    DeliveryID SERIAL PRIMARY KEY,
+    SupplierID INT NOT NULL REFERENCES Suppliers(SupplierID) ON DELETE RESTRICT,
+    DeliveryDate DATE NOT NULL DEFAULT CURRENT_DATE,
+    ReferenceCode VARCHAR(80),
+    Notes TEXT,
+    CreatedBy INT REFERENCES Users(UserID) ON DELETE SET NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE SupplierDeliveryLines (
+    LineID SERIAL PRIMARY KEY,
+    DeliveryID INT NOT NULL REFERENCES SupplierDeliveries(DeliveryID) ON DELETE CASCADE,
+    ProductID INT NOT NULL REFERENCES Products(ProductID) ON DELETE RESTRICT,
+    QuantityReceived INT NOT NULL CHECK (QuantityReceived > 0),
+    UnitCost DECIMAL(12,2)
+);
+
+CREATE TABLE SupplierInvoices (
+    InvoiceID SERIAL PRIMARY KEY,
+    SupplierID INT NOT NULL REFERENCES Suppliers(SupplierID) ON DELETE RESTRICT,
+    InvoiceNumber VARCHAR(80) NOT NULL,
+    InvoiceDate DATE NOT NULL DEFAULT CURRENT_DATE,
+    DueDate DATE,
+    Amount DECIMAL(12,2) NOT NULL CHECK (Amount >= 0),
+    Status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (Status IN ('pending', 'paid', 'cancelled')),
+    PaidDate DATE,
+    Notes TEXT,
+    DeliveryID INT REFERENCES SupplierDeliveries(DeliveryID) ON DELETE SET NULL,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (SupplierID, InvoiceNumber)
+);
+
 -- ========================================================
 -- 2. INDEXES
 -- ========================================================
@@ -97,6 +130,10 @@ CREATE INDEX idx_products_barcode ON Products(Barcode);
 CREATE INDEX idx_stock_product ON Stock(ProductID);
 CREATE INDEX idx_sales_date ON Sales(SaleDate);
 CREATE INDEX idx_sales_details_sale ON Sales_Details(SaleID);
+CREATE INDEX idx_supplier_deliveries_supplier ON SupplierDeliveries(SupplierID);
+CREATE INDEX idx_supplier_deliveries_date ON SupplierDeliveries(DeliveryDate);
+CREATE INDEX idx_supplier_invoices_supplier ON SupplierInvoices(SupplierID);
+CREATE INDEX idx_supplier_invoices_status ON SupplierInvoices(Status);
 
 -- ========================================================
 -- 3. TRIGGER FUNCTIONS & TRIGGERS
@@ -187,7 +224,13 @@ INSERT INTO Users (Username, Password, FullName, Role) VALUES
 ('manager1', 'manager123', 'Sarah Manager', 'manager');
 
 INSERT INTO StoreSettings (SettingKey, SettingValue) VALUES
-('cart_removal_pin', '882244');
+('cart_removal_pin', '882244'),
+('store_display_name', 'Retail Supermarket'),
+('restock_email_subject', 'Restock request — {store_name} (low stock)'),
+(
+    'restock_email_body',
+    E'Dear {supplier_name},\n\nPlease arrange supply for the following items at or below reorder level at {store_name}:\n\n{items_table}\n\nPlease confirm availability, pricing, and delivery schedule.\n\nKind regards,\nStore Management\n{store_name}'
+);
 
 INSERT INTO Suppliers (SupplierName, ContactPerson, PhoneNumber, Email) VALUES
 ('Trade Kings', 'John Banda', '0977123456', 'sales@tradekings.co.zm'),
@@ -232,6 +275,27 @@ INSERT INTO Sales_Details (SaleID, ProductID, QuantitySold, UnitPrice, LineTotal
 (3, 2, 1, 85.00, 85.00),
 (3, 8, 1, 18.50, 18.50),
 (3, 5, 4, 12.50, 50.00);
+
+-- Sample goods-in (delivery notes) + supplier AP invoices (matches app behaviour: stock increases)
+INSERT INTO SupplierDeliveries (SupplierID, DeliveryDate, ReferenceCode, Notes, CreatedBy) VALUES
+(1, '2026-04-08', 'GRN-2026-0410', 'Cleaning & groceries restock — Trade Kings', 2),
+(2, '2026-04-09', 'GRN-2026-0411', 'Meat delivery — Zambeef', 2);
+
+INSERT INTO SupplierDeliveryLines (DeliveryID, ProductID, QuantityReceived, UnitCost) VALUES
+(1, 1, 50, 18.00),
+(1, 3, 40, 48.00),
+(2, 2, 25, 72.00),
+(2, 6, 30, 38.00);
+
+UPDATE Stock SET QuantityAvailable = QuantityAvailable + 50, LastRestockDate = '2026-04-08' WHERE ProductID = 1;
+UPDATE Stock SET QuantityAvailable = QuantityAvailable + 40, LastRestockDate = '2026-04-08' WHERE ProductID = 3;
+UPDATE Stock SET QuantityAvailable = QuantityAvailable + 25, LastRestockDate = '2026-04-09' WHERE ProductID = 2;
+UPDATE Stock SET QuantityAvailable = QuantityAvailable + 30, LastRestockDate = '2026-04-09' WHERE ProductID = 6;
+
+INSERT INTO SupplierInvoices (SupplierID, InvoiceNumber, InvoiceDate, DueDate, Amount, Status, PaidDate, Notes, DeliveryID) VALUES
+(1, 'TK-INV-2026-0410', '2026-04-08', '2026-05-08', 2820.00, 'pending', NULL, 'Linked to GRN-2026-0410', 1),
+(2, 'ZB-INV-2026-0409', '2026-04-09', '2026-05-09', 2940.00, 'paid', '2026-04-10', 'Settled — mobile transfer', 2),
+(4, 'UNL-INV-2026-0395', '2026-04-01', '2026-05-01', 1850.50, 'pending', NULL, 'Standalone AP — not tied to a recorded delivery', NULL);
 
 -- ========================================================
 -- END OF SCRIPT

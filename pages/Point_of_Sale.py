@@ -4,13 +4,11 @@ from models.inventory import POSSystem
 from models.invoice import InvoiceService
 from models.navigation import render_sidebar
 from models.store_settings import StoreSettings
+from models.users import User
 
 st.set_page_config(page_title="Point of Sale", layout="wide", initial_sidebar_state="expanded")
+User.check_login(["cashier", "manager"], redirect_page="pages/Point_of_Sale.py")
 render_sidebar()
-
-if "current_user" not in st.session_state or st.session_state.current_user is None:
-    st.warning("Access Denied. Please log in from the Home page first.")
-    st.stop()
 
 current_user = st.session_state.current_user
 user_role = current_user.role
@@ -98,6 +96,31 @@ def try_lookup_barcode(code: str):
 init_shopping_cart()
 
 st.title("Point of Sale Terminal")
+
+# Transaction protection: Prevent new transaction while cart has items
+if st.session_state.cart:
+    st.warning("⚠️ **Transaction in Progress** - Complete or cancel current transaction before starting a new one.")
+    st.info("Current cart has items. Please complete checkout or explicitly cancel the cart first.")
+
+    # Force completion options
+    col_cancel, col_continue = st.columns(2)
+    with col_cancel:
+        if st.button("Cancel Current Transaction", type="secondary", use_container_width=True):
+            request_clear_cart()
+    with col_continue:
+        st.button("Continue with Current Transaction", type="primary", use_container_width=True, disabled=True)
+
+    st.divider()
+    st.subheader("Current Transaction Items")
+else:
+    # Only show new transaction option when cart is empty
+    if st.button("🆕 New Transaction", type="primary", use_container_width=True):
+        # Reset any pending states
+        st.session_state.pending_invoice_sale_id = None
+        st.session_state.cart = []
+        st.session_state.cart_total = 0.0
+        st.success("Ready for new transaction")
+        st.rerun()
 
 pending_inv = st.session_state.pending_invoice_sale_id
 if pending_inv:
