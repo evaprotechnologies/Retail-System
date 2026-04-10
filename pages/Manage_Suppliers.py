@@ -5,6 +5,7 @@ import streamlit as st
 
 from models.inventory import POSSystem
 from models.navigation import render_sidebar
+from models.ui_theme import render_page_heading
 from models.store_settings import StoreSettings
 from models.supplier_logistics import (
     RESTOCK_BODY_KEY,
@@ -14,14 +15,19 @@ from models.supplier_logistics import (
 )
 from models.users import User
 
-st.set_page_config(page_title="Manage Suppliers", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Manage Suppliers",
+    page_icon=":material/local_shipping:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 User.check_login(["manager"], redirect_page="pages/Manage_Suppliers.py")
 render_sidebar()
 
-st.title("Supplier management")
-st.caption(
+render_page_heading(
+    "Supplier management",
     "Directory, goods-in delivery notes (updates stock), supplier invoices (pending / paid), "
-    "and low-stock restock emails with editable templates."
+    "and low-stock restock emails with editable templates.",
 )
 
 try:

@@ -36,7 +36,8 @@ Retail_System_Project/
 │   ├── admin.py                    # StaffAdmin — user lists, cashier sales drill-down
 │   ├── supplier_logistics.py       # Deliveries (goods-in), supplier AP invoices, restock email text
 │   ├── store_settings.py           # StoreSettings — cart PIN, email templates, store name
-│   └── navigation.py               # Role-based sidebar (st.page_link)
+│   ├── navigation.py               # Role-based sidebar (st.page_link)
+│   └── ui_theme.py                 # Shared Streamlit styling (CSS + page headers)
 │
 ├── pages/
 │   ├── Dashboard.py                # Manager — low stock + catalog

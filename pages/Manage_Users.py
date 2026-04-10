@@ -4,14 +4,22 @@ import pandas as pd
 from models.admin import StaffAdmin
 from models.navigation import render_sidebar
 from models.store_settings import CART_REMOVAL_PIN_KEY, StoreSettings
+from models.ui_theme import render_page_heading
 from models.users import User
 
-st.set_page_config(page_title="Manage Users", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Manage Users",
+    page_icon=":material/manage_accounts:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 User.check_login(["manager"], redirect_page="pages/Manage_Users.py")
 render_sidebar()
 
-st.title("Manage Users & Cashiers")
-st.caption("Add staff, reset passwords, review sales, and configure the store cart-removal PIN.")
+render_page_heading(
+    "Users & store security",
+    "Staff accounts, password resets, sales review, and cart-removal PIN.",
+)
 
 tab_staff, tab_pass, tab_pin = st.tabs(["Staff accounts", "Password reset", "Store removal PIN"])
 

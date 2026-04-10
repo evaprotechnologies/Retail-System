@@ -3,13 +3,19 @@ import pandas as pd
 
 from models.inventory import POSSystem
 from models.navigation import render_sidebar
+from models.ui_theme import render_page_heading
 from models.users import User
 
-st.set_page_config(page_title="Manage Products", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Manage Products",
+    page_icon=":material/inventory_2:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 User.check_login(["manager"], redirect_page="pages/Manage_Products.py")
 render_sidebar()
 
-st.title("📦 Product Management")
+render_page_heading("Product catalog", "Add SKUs, update prices, and remove discontinued items.")
 
 tab1, tab2, tab3 = st.tabs(["➕ Add Product", "✏️ Update Price", "❌ Delete Product"])
 

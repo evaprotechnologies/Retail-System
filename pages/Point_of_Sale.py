@@ -4,9 +4,15 @@ from models.inventory import POSSystem
 from models.invoice import InvoiceService
 from models.navigation import render_sidebar
 from models.store_settings import StoreSettings
+from models.ui_theme import render_page_heading
 from models.users import User
 
-st.set_page_config(page_title="Point of Sale", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Point of Sale",
+    page_icon=":material/point_of_sale:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 User.check_login(["cashier", "manager"], redirect_page="pages/Point_of_Sale.py")
 render_sidebar()
 
@@ -95,7 +101,7 @@ def try_lookup_barcode(code: str):
 
 init_shopping_cart()
 
-st.title("Point of Sale Terminal")
+render_page_heading("Point of Sale", "Browse or scan items, manage the cart, then complete checkout.")
 
 # Transaction protection: Prevent new transaction while cart has items
 if st.session_state.cart:
@@ -149,30 +155,6 @@ if pending_inv:
     except Exception as exc:
         st.error(f"Could not build invoice: {exc}")
     st.divider()
-
-st.markdown(
-    """
-<style>
-    .pos-container {
-        background: #f8f9fa;
-        padding: 1.5rem;
-        border-radius: 10px;
-        margin-bottom: 1rem;
-    }
-    .total-display {
-        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        text-align: center;
-        font-size: 1.5em;
-        font-weight: bold;
-        margin: 1rem 0;
-    }
-</style>
-""",
-    unsafe_allow_html=True,
-)
 
 col1, col2, col3 = st.columns([2, 2, 1])
 

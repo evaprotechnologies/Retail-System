@@ -3,13 +3,19 @@ import pandas as pd
 
 from models.inventory import POSSystem
 from models.navigation import render_sidebar
+from models.ui_theme import render_page_heading
 from models.users import User
 
-st.set_page_config(page_title="Sales Analytics", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Sales Analytics",
+    page_icon=":material/monitoring:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 User.check_login(["manager"], redirect_page="pages/Sales_Analytics.py")
 render_sidebar()
 
-st.title("📈 Sales Analytics & Reports")
+render_page_heading("Sales analytics", "Daily revenue, volumes, and transaction counts.")
 
 sales_data = POSSystem.get_sales_summary()
 
@@ -30,4 +36,4 @@ else:
     st.dataframe(df, use_container_width=True, hide_index=True)
 
     st.subheader("Revenue Trend")
-    st.bar_chart(data=df, x="transactiondate", y="dailyrevenue", color="#0083B8")
+    st.bar_chart(data=df, x="transactiondate", y="dailyrevenue", color="#2563eb")

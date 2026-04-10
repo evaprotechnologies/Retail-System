@@ -4,14 +4,22 @@ import pandas as pd
 from models.inventory import POSSystem
 from models.invoice import InvoiceService
 from models.navigation import render_sidebar
+from models.ui_theme import render_page_heading
 from models.users import User
 
-st.set_page_config(page_title="Invoices & audit", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Invoices & audit",
+    page_icon=":material/fact_check:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 User.check_login(["manager"], redirect_page="pages/Invoices_Audit.py")
 render_sidebar()
 
-st.title("Invoices & audit")
-st.caption("Every sale has a customer invoice (PDF). Open or download for audits or reprints.")
+render_page_heading(
+    "Invoices & audit",
+    "Every sale has a customer invoice (PDF). Open or download for audits or reprints.",
+)
 
 sales = POSSystem.list_recent_sales(500)
 if not sales:

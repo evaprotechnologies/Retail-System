@@ -3,13 +3,19 @@ import pandas as pd
 
 from models.inventory import POSSystem
 from models.navigation import render_sidebar
+from models.ui_theme import render_page_heading
 from models.users import User
 
-st.set_page_config(page_title="Dashboard", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="Dashboard",
+    page_icon=":material/space_dashboard:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 User.check_login(["manager"], redirect_page="pages/Dashboard.py")
 render_sidebar()
 
-st.title("📊 Inventory Dashboard")
+render_page_heading("Inventory dashboard", "Low-stock alerts and full product catalog.")
 
 col1, col2 = st.columns(2)
 

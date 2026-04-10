@@ -4,15 +4,20 @@ import pandas as pd
 from models.inventory import POSSystem
 from models.invoice import InvoiceService
 from models.navigation import render_sidebar
+from models.ui_theme import render_page_heading
 from models.users import User
 
-st.set_page_config(page_title="My Sales & Handover", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="My Sales & Handover",
+    page_icon=":material/receipt_long:",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 User.check_login(["cashier"], redirect_page="pages/Cashier_Handover.py")
 render_sidebar()
 
 user = st.session_state.current_user
-st.title("My Sales & Handover")
-st.caption("Review your transactions for shift handover and reconciliation.")
+render_page_heading("My sales & handover", "Review your shift for reconciliation and PDF invoices.")
 
 sales = POSSystem.get_sales_for_user(user.user_id)
 
